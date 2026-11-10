@@ -14,6 +14,7 @@ import { Keyboard } from "./Keyboard";
 import { BindingEditor } from "./BindingEditor";
 import { bindingLabel } from "./bindings";
 import { HostLayoutContext, useHostLayoutState } from "./layout";
+import { downloadJson, exportKeymap, planImport } from "./transfer";
 import "./App.css";
 
 type State =
@@ -25,6 +26,8 @@ type State =
 export default function App() {
   const [state, setState] = useState<State>({ phase: "idle" });
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const [behaviors, setBehaviors] = useState<Behavior[]>([]);
   const [keymap, setKeymap] = useState<Keymap | null>(null);
   const [layouts, setLayouts] = useState<PhysicalLayouts | null>(null);
@@ -168,6 +171,43 @@ export default function App() {
       setLayerIdx(0);
     });
 
+  const exportFile = () => {
+    if (!keymap) return;
+    const name = (state.phase === "ready" ? state.name : "keyboard").replace(/[^\w.-]+/g, "_");
+    const d = new Date();
+    const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+    downloadJson(exportKeymap(keymap, behaviors, state.phase === "ready" ? state.name : ""), `${name}-keymap-${stamp}.json`);
+    setNotice(unsaved ? "書き出しました（未保存の変更も含まれています）" : "書き出しました");
+  };
+
+  const importFile = (file: File) =>
+    run(async () => {
+      if (!dev || !keymap) return;
+      let data: unknown;
+      try {
+        data = JSON.parse(await file.text());
+      } catch {
+        throw new Error("ファイルを読み取れませんでした");
+      }
+      const plan = planImport(data, keymap, behaviors);
+      if (!plan.bindings.length && !plan.names.length) {
+        setNotice("このキーボードはすでにファイルと同じ内容です");
+        return;
+      }
+      if (!confirm(`${plan.bindings.length} キーの割り当てと ${plan.names.length} 個のレイヤー名を書き換えます。続けますか？\n（「キーボードに保存」を押すまでは確定しません）`)) return;
+      for (const c of plan.bindings) {
+        const err = await dev.setBinding(c.layerId, c.keyPosition, c.binding);
+        if (err) throw new Error(`レイヤー ${c.layerId} のキー ${c.keyPosition}: ${err}`);
+      }
+      for (const n of plan.names) {
+        if (!(await dev.setLayerName(n.layerId, n.name))) throw new Error("レイヤー名を変更できませんでした");
+      }
+      setKeymap(await dev.getKeymap());
+      setUnsaved(await dev.checkUnsaved());
+      setSelected(null);
+      setNotice("読み込みました。内容を確認して「キーボードに保存」を押してください");
+    });
+
   const discard = () =>
     run(async () => {
       if (!confirm("保存していない変更をすべて破棄しますか？")) return;
@@ -230,6 +270,13 @@ export default function App() {
           {dev && <button className="btn ghost" onClick={disconnect}>切断</button>}
         </div>
       </header>
+
+      {notice && !error && (
+        <div className="toast ok" role="status">
+          <span>{notice}</span>
+          <button className="icon-btn" onClick={() => setNotice(null)} aria-label="閉じる">×</button>
+        </div>
+      )}
 
       {error && (
         <div className="toast" role="alert">
@@ -336,6 +383,25 @@ export default function App() {
             <span className="layerbar-meta muted small">
               {physical.keys.length} キー · {physical.name}
             </span>
+            <div className="layerbar-actions">
+              <button className="btn ghost small-btn" disabled={busy} onClick={exportFile} title="今のキーマップをファイルに保存">
+                ⤓ 書き出し
+              </button>
+              <button className="btn ghost small-btn" disabled={busy} onClick={() => importInput.current?.click()} title="書き出したファイルをこのキーボードに読み込む">
+                ⤒ 読み込み
+              </button>
+              <input
+                ref={importInput}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) importFile(f);
+                }}
+              />
+            </div>
           </nav>
 
           <section className="canvas" aria-label={`${layer.name || `Layer ${layerIdx}`} のキー配置`}>

@@ -233,3 +233,10 @@ select:focus, input[type=number]:focus { outline: 2px solid color-mix(in srgb, v
 .host-layout { display: flex; align-items: center; gap: 8px; margin-right: 4px; }
 .host-layout .seg { margin: 0; padding: 2px; }
 .host-layout .seg button { flex: none; height: 26px; padding: 0 10px; font-size: .78rem; }
+
+/* ---------- export / import ---------- */
+.layerbar-actions { display: flex; gap: 6px; }
+.btn.small-btn { height: 30px; padding: 0 10px; font-size: .82rem; }
+.toast.ok { background: var(--ok); }
+@media (prefers-color-scheme: dark) { .toast.ok { color: #0b1a10; } .toast.ok .icon-btn { color: #0b1a10; } }
+@media (max-width: 860px) { .layerbar { flex-wrap: wrap; padding-bottom: 8px; } }
