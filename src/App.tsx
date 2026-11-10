@@ -251,16 +251,12 @@ export default function App() {
 
       {state.phase === "ready" && keymap && physical && layer && (
         <div className="workspace">
-          <nav className="sidebar" aria-label="レイヤー">
-            <div className="sidebar-head">
-              <span>レイヤー</span>
-              <span className="count">{keymap.layers.length}</span>
-            </div>
-            <ul className="layer-list">
+          <nav className="layerbar" aria-label="レイヤー">
+            <ul className="layer-tabs">
               {keymap.layers.map((l, i) => (
                 <li key={l.id}>
                   {renaming === l.id ? (
-                    <div className="layer-item editing">
+                    <div className="layer-tab editing">
                       <span className="layer-idx">{i}</span>
                       <input
                         className="layer-input"
@@ -281,7 +277,7 @@ export default function App() {
                       />
                     </div>
                   ) : (
-                    <div className={`layer-item${i === layerIdx ? " active" : ""}`}>
+                    <div className={`layer-tab${i === layerIdx ? " active" : ""}`}>
                       <button
                         className="layer-select"
                         onClick={() => setLayerIdx(i)}
@@ -305,32 +301,34 @@ export default function App() {
                 </li>
               ))}
             </ul>
-            <p className="sidebar-foot muted small">✎ かダブルクリックで名前を変更</p>
+            <span className="layerbar-meta muted small">
+              {physical.keys.length} キー · {physical.name}
+            </span>
           </nav>
 
-          <section className="canvas">
-            <div className="canvas-head">
-              <h2>{layer.name || `Layer ${layerIdx}`}</h2>
-              <span className="muted small">{physical.keys.length} キー · {physical.name}</span>
-            </div>
+          <section className="canvas" aria-label={`${layer.name || `Layer ${layerIdx}`} のキー配置`}>
             <Keyboard layout={physical} labels={labels} selected={selected} onSelect={setSelected} />
           </section>
 
-          <aside className="inspector">
+          <section className="inspector" aria-label="キーの設定">
             {selected === null || !layer.bindings[selected] ? (
               <div className="empty">
                 <div className="empty-key" aria-hidden />
-                <p>キーを選択してください</p>
-                <p className="muted small">キーボード上のキーをクリックすると、ここで割り当てを変更できます。</p>
+                <div>
+                  <p>キーを選択してください</p>
+                  <p className="muted small">
+                    上のキーボードでキーをクリックすると、ここで割り当てを変更できます。レイヤー名は ✎ かタブのダブルクリックで変更できます。
+                  </p>
+                </div>
               </div>
             ) : (
-              <>
+              <div className="inspector-body">
                 <div className="inspector-head">
                   <div className="preview-key">
                     {selectedLabel?.sub && <span className="sub">{selectedLabel.sub}</span>}
                     <span className="main">{selectedLabel?.main || "—"}</span>
                   </div>
-                  <div>
+                  <div className="inspector-meta">
                     <div className="inspector-title">キー {selected}</div>
                     <div className="muted small">{layer.name || `Layer ${layerIdx}`}</div>
                   </div>
@@ -342,9 +340,9 @@ export default function App() {
                   keymap={keymap}
                   onChange={updateBinding}
                 />
-              </>
+              </div>
             )}
-          </aside>
+          </section>
         </div>
       )}
     </div>

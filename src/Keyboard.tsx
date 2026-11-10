@@ -43,13 +43,19 @@ export function Keyboard({
       const cs = getComputedStyle(el);
       const inner = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
       const avail = inner - PAD * 2 - 4;
-      setU(Math.max(MIN_U, Math.min(MAX_U, Math.floor(avail / w))));
+      let u = avail / w;
+      // On wide layouts the canvas has a fixed height; fit to that too.
+      if (window.matchMedia("(min-width: 861px)").matches) {
+        const innerH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+        if (innerH > 0) u = Math.min(u, (innerH - PAD * 2 - 4) / h);
+      }
+      setU(Math.max(MIN_U, Math.min(MAX_U, Math.floor(u))));
     };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [w]);
+  }, [w, h]);
 
   const fontScale = U / 54;
 
