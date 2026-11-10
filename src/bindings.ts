@@ -3,7 +3,7 @@ import type {
   BehaviorBindingParametersSet,
   BehaviorParameterValueDescription as Desc,
 } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
-import { usageLabel } from "./hid";
+import { usageLabel, type HostLayout } from "./hid";
 
 export function descMatches(d: Desc, v: number): boolean {
   if (d.constant !== undefined) return d.constant === v;
@@ -17,10 +17,10 @@ export function findSet(b: Behavior, param1: number): BehaviorBindingParametersS
   return b.metadata.find((s) => s.param1.length === 0 || s.param1.some((d) => descMatches(d, param1)));
 }
 
-export function describeParam(d: Desc | undefined, v: number, keymap: Keymap): string {
+export function describeParam(d: Desc | undefined, v: number, keymap: Keymap, layout: HostLayout): string {
   if (!d) return "";
   if (d.constant !== undefined) return d.name;
-  if (d.hidUsage) return usageLabel(v);
+  if (d.hidUsage) return usageLabel(v, layout);
   if (d.layerId) return keymap.layers.find((l) => l.id === v)?.name || `L${v}`;
   if (d.range) return String(v);
   return "";
@@ -30,14 +30,15 @@ export function bindingLabel(
   b: BehaviorBinding,
   behaviors: Map<number, Behavior>,
   keymap: Keymap,
+  layout: HostLayout,
 ): { main: string; sub: string } {
   const beh = behaviors.get(b.behaviorId);
   if (!beh) return { main: "?", sub: `#${b.behaviorId}` };
   const set = findSet(beh, b.param1);
   const d1 = set?.param1.find((d) => descMatches(d, b.param1));
   const d2 = set?.param2.find((d) => descMatches(d, b.param2));
-  const p1 = describeParam(d1, b.param1, keymap);
-  const p2 = describeParam(d2, b.param2, keymap);
+  const p1 = describeParam(d1, b.param1, keymap, layout);
+  const p2 = describeParam(d2, b.param2, keymap, layout);
   const name = beh.displayName;
   if (name === "Key Press") return { main: p1, sub: "" };
   if (name === "Transparent") return { main: "▽", sub: "" };

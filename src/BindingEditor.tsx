@@ -1,7 +1,8 @@
 import type { BehaviorParameterValueDescription as Desc } from "@zmkfirmware/zmk-studio-ts-client/behaviors";
 import type { Behavior, BehaviorBinding, Keymap } from "./device";
 import { findSet } from "./bindings";
-import { decodeUsage, encodeUsage, MODS, PAGE_CONSUMER, PAGE_KEYBOARD, usageOptions } from "./hid";
+import { decodeUsage, encodeUsage, LSHIFT, MODS, optionKeyFor, PAGE_CONSUMER, PAGE_KEYBOARD, usageGroups } from "./hid";
+import { useHostLayout } from "./layout";
 
 export function BindingEditor({
   binding,
@@ -147,12 +148,24 @@ function HidInput({
   value: number;
   onChange: (v: number) => void;
 }) {
+  const layout = useHostLayout();
   const { mods, page, id } = decodeUsage(value);
   const pages = [
     { page: PAGE_KEYBOARD, label: "キーボード", max: max.keyboardMax },
     { page: PAGE_CONSUMER, label: "メディア", max: max.consumerMax },
   ].filter((p) => p.max > 0);
-  const opts = usageOptions(page, pages.find((p) => p.page === page)?.max ?? 0xffff);
+  const groups = usageGroups(page, pages.find((p) => p.page === page)?.max ?? 0xffff, layout);
+  const all = groups.flatMap((g) => g.options);
+  const { key: currentKey } = optionKeyFor(value, layout);
+  const known = all.some((o) => o.key === currentKey);
+
+  const pick = (key: string) => {
+    const o = all.find((x) => x.key === key);
+    if (!o) return;
+    // Keep the user's other modifiers; Shift follows the chosen character.
+    const keep = mods & ~LSHIFT;
+    onChange(encodeUsage(page, o.id, o.shift ? keep | LSHIFT : keep));
+  };
 
   return (
     <fieldset className="hid">
@@ -163,17 +176,24 @@ function HidInput({
             <button
               key={p.page}
               className={p.page === page ? "on" : ""}
-              onClick={() => onChange(encodeUsage(p.page, usageOptions(p.page, p.max)[0]?.id ?? 0, 0))}
+              onClick={() => {
+                const first = usageGroups(p.page, p.max, layout)[0]?.options[0];
+                onChange(encodeUsage(p.page, first?.id ?? 0, 0));
+              }}
             >
               {p.label}
             </button>
           ))}
         </div>
       )}
-      <select value={id} onChange={(e) => onChange(encodeUsage(page, Number(e.target.value), mods))}>
-        {!opts.some((o) => o.id === id) && <option value={id}>0x{id.toString(16)}</option>}
-        {opts.map((o) => (
-          <option key={o.id} value={o.id}>{o.label}</option>
+      <select value={known ? currentKey : "unknown"} onChange={(e) => pick(e.target.value)}>
+        {!known && <option value="unknown">0x{id.toString(16)}</option>}
+        {groups.map((g) => (
+          <optgroup key={g.label} label={g.label}>
+            {g.options.map((o) => (
+              <option key={o.key} value={o.key}>{o.label}</option>
+            ))}
+          </optgroup>
         ))}
       </select>
       {page === PAGE_KEYBOARD && (

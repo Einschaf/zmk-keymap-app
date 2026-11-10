@@ -228,3 +228,8 @@ select:focus, input[type=number]:focus { outline: 2px solid color-mix(in srgb, v
   .editor > label, .hid { width: 100%; }
   .connect-options { grid-template-columns: 1fr; }
 }
+
+/* ---------- host layout toggle ---------- */
+.host-layout { display: flex; align-items: center; gap: 8px; margin-right: 4px; }
+.host-layout .seg { margin: 0; padding: 2px; }
+.host-layout .seg button { flex: none; height: 26px; padding: 0 10px; font-size: .78rem; }

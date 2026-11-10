@@ -13,6 +13,7 @@ import {
 import { Keyboard } from "./Keyboard";
 import { BindingEditor } from "./BindingEditor";
 import { bindingLabel } from "./bindings";
+import { HostLayoutContext, useHostLayoutState } from "./layout";
 import "./App.css";
 
 type State =
@@ -31,6 +32,7 @@ export default function App() {
   const [selected, setSelected] = useState<number | null>(null);
   const [unsaved, setUnsaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [hostLayout, setHostLayout] = useHostLayoutState();
 
   const dev = state.phase === "ready" || state.phase === "locked" ? state.dev : null;
 
@@ -87,8 +89,8 @@ export default function App() {
   const layer = keymap?.layers[layerIdx];
   const physical = layouts?.layouts[layouts.activeLayoutIndex];
   const labels = useMemo(
-    () => (layer && keymap ? layer.bindings.map((b) => bindingLabel(b, behaviorMap, keymap)) : []),
-    [layer, keymap, behaviorMap],
+    () => (layer && keymap ? layer.bindings.map((b) => bindingLabel(b, behaviorMap, keymap, hostLayout)) : []),
+    [layer, keymap, behaviorMap, hostLayout],
   );
 
   const run = async (fn: () => Promise<void>) => {
@@ -172,6 +174,7 @@ export default function App() {
   const selectedLabel = selected !== null ? labels[selected] : undefined;
 
   return (
+    <HostLayoutContext.Provider value={hostLayout}>
     <div className="shell">
       <header className="topbar">
         <div className="brand">
@@ -186,6 +189,16 @@ export default function App() {
           </div>
         )}
         <div className="topbar-actions">
+          <div className="host-layout" role="group" aria-label="PC のキー配列">
+            <span className="muted small">PC の配列</span>
+            <div className="seg">
+              {(["jis", "us"] as const).map((l) => (
+                <button key={l} className={hostLayout === l ? "on" : ""} onClick={() => setHostLayout(l)} aria-pressed={hostLayout === l}>
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
           {state.phase === "ready" && (
             <>
               <span className={`save-state${unsaved ? " dirty" : ""}`}>
@@ -346,6 +359,7 @@ export default function App() {
         </div>
       )}
     </div>
+    </HostLayoutContext.Provider>
   );
 }
 
