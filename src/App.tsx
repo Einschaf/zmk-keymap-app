@@ -154,6 +154,20 @@ export default function App() {
       setUnsaved(await dev!.checkUnsaved());
     });
 
+  const resetToFirmware = () =>
+    run(async () => {
+      if (!dev) return;
+      const ok = confirm(
+        "アプリで保存したキーの割り当てとレイヤー名をすべて消して、ファームウェアに書き込まれているキーマップに戻します。\n\nこの操作は取り消せません。続けますか？",
+      );
+      if (!ok) return;
+      if (!(await dev.resetToFirmware())) throw new Error("初期状態に戻せませんでした");
+      setKeymap(await dev.getKeymap());
+      setUnsaved(await dev.checkUnsaved());
+      setSelected(null);
+      setLayerIdx(0);
+    });
+
   const discard = () =>
     run(async () => {
       if (!confirm("保存していない変更をすべて破棄しますか？")) return;
@@ -207,6 +221,11 @@ export default function App() {
               <button className="btn ghost" disabled={!unsaved || busy} onClick={discard}>破棄</button>
               <button className="btn primary" disabled={!unsaved || busy} onClick={save}>キーボードに保存</button>
             </>
+          )}
+          {state.phase === "ready" && (
+            <button className="btn ghost" disabled={busy} onClick={resetToFirmware} title="アプリで保存した変更をすべて消して、ファームウェアのキーマップに戻す">
+              ファームウェアの状態に戻す
+            </button>
           )}
           {dev && <button className="btn ghost" onClick={disconnect}>切断</button>}
         </div>

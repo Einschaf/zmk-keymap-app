@@ -32,6 +32,8 @@ export interface Device {
   checkUnsaved(): Promise<boolean>;
   save(): Promise<string | null>;
   discard(): Promise<boolean>;
+  /** Erase every change saved from Studio so the keyboard uses the keymap built into its firmware. */
+  resetToFirmware(): Promise<boolean>;
   onNotification(cb: (n: Notification) => void): void;
   disconnect(): void;
 }
@@ -127,6 +129,10 @@ function wrap(conn: RpcConnection, abort: AbortController): Device {
       const s = r.keymap?.saveChanges;
       if (s?.ok) return null;
       return SAVE_ERRORS[s?.err ?? 1] ?? "保存に失敗しました";
+    },
+    async resetToFirmware() {
+      const r = await rpc({ core: { resetSettings: true } });
+      return !!r.core?.resetSettings;
     },
     async discard() {
       const r = await rpc({ keymap: { discardChanges: true } });

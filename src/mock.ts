@@ -118,6 +118,12 @@ export function createMockDevice(): Device {
       notify();
       return null;
     },
+    async resetToFirmware() {
+      saved = keymap();
+      current = structuredClone(saved);
+      notify();
+      return true;
+    },
     async discard() {
       current = structuredClone(saved);
       notify();
