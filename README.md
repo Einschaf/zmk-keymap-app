@@ -3,7 +3,12 @@
 ZMK Studio の RPC プロトコル（`@zmkfirmware/zmk-studio-ts-client`）を使って、
 ZMK キーボードのキーマップをブラウザからリアルタイムに書き換える自作アプリです。
 
-## 起動
+## 使い方（インストール不要）
+
+Chrome / Edge で https://einschaf.github.io/zmk-keymap-app/ を開きます。
+`main` に push すると GitHub Actions で自動的に再公開されます。
+
+## 開発用に手元で起動
 
 ```bash
 npm install --ignore-scripts   # 依存パッケージの postinstall がこの環境では失敗するため
