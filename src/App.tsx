@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   connectDevice,
   isSupported,
@@ -119,13 +119,30 @@ export default function App() {
       setUnsaved(true);
     });
 
-  const renameLayer = () =>
+  const [renaming, setRenaming] = useState<number | null>(null); // layer id being renamed
+  const [draftName, setDraftName] = useState("");
+  const cancelRename = useRef(false);
+
+  const startRename = (layerId: number) => {
+    const l = keymap?.layers.find((x) => x.id === layerId);
+    if (!l) return;
+    cancelRename.current = false;
+    setDraftName(l.name);
+    setRenaming(layerId);
+  };
+
+  const commitRename = () =>
     run(async () => {
-      if (!dev || !layer || !keymap) return;
-      const name = prompt("レイヤー名", layer.name)?.slice(0, keymap.maxLayerNameLength);
-      if (name == null) return;
-      if (!(await dev.setLayerName(layer.id, name))) throw new Error("レイヤー名を変更できませんでした");
-      setKeymap({ ...keymap, layers: keymap.layers.map((l) => (l.id === layer.id ? { ...l, name } : l)) });
+      const layerId = renaming;
+      setRenaming(null);
+      if (cancelRename.current) return;
+      if (!dev || !keymap || layerId === null) return;
+      const name = draftName.trim().slice(0, keymap.maxLayerNameLength);
+      const current = keymap.layers.find((l) => l.id === layerId);
+      if (!current || name === current.name) return;
+      if (!(await dev.setLayerName(layerId, name))) throw new Error("レイヤー名を変更できませんでした");
+      setKeymap((km) => km && { ...km, layers: km.layers.map((l) => (l.id === layerId ? { ...l, name } : l)) });
+      setUnsaved(true);
     });
 
   const save = () =>
@@ -202,16 +219,47 @@ export default function App() {
         <main>
           <div className="toolbar">
             <div className="tabs">
-              {keymap.layers.map((l, i) => (
-                <button
-                  key={l.id}
-                  className={i === layerIdx ? "on" : ""}
-                  onClick={() => setLayerIdx(i)}
-                  onDoubleClick={renameLayer}
-                >
-                  {i}: {l.name || `Layer ${i}`}
-                </button>
-              ))}
+              {keymap.layers.map((l, i) =>
+                renaming === l.id ? (
+                  <input
+                    key={l.id}
+                    className="tab-input"
+                    autoFocus
+                    value={draftName}
+                    maxLength={keymap.maxLayerNameLength}
+                    placeholder={`Layer ${i}`}
+                    aria-label={`レイヤー ${i} の名前`}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") e.currentTarget.blur();
+                      if (e.key === "Escape") {
+                        cancelRename.current = true;
+                        e.currentTarget.blur();
+                      }
+                    }}
+                  />
+                ) : (
+                  <button
+                    key={l.id}
+                    className={i === layerIdx ? "on" : ""}
+                    onClick={() => setLayerIdx(i)}
+                    onDoubleClick={() => startRename(l.id)}
+                    title="ダブルクリックで名前を変更"
+                  >
+                    {i}: {l.name || `Layer ${i}`}
+                  </button>
+                ),
+              )}
+              <button
+                className="ghost rename"
+                disabled={busy || renaming !== null}
+                onClick={() => startRename(layer.id)}
+                title="表示中のレイヤーの名前を変更"
+              >
+                ✎ 名前を変更
+              </button>
             </div>
             <div className="actions">
               {unsaved && <span className="badge">未保存の変更あり</span>}
@@ -224,7 +272,7 @@ export default function App() {
 
           <aside className="panel">
             {selected === null ? (
-              <p className="hint">変更したいキーをクリックしてください。レイヤー名はタブをダブルクリックすると変更できます。</p>
+              <p className="hint">変更したいキーをクリックしてください。レイヤー名は「✎ 名前を変更」かタブのダブルクリックで変更できます（Enter で確定、Esc で取り消し）。</p>
             ) : layer.bindings[selected] ? (
               <>
                 <h3>キー {selected} <small>({layer.name || `Layer ${layerIdx}`})</small></h3>

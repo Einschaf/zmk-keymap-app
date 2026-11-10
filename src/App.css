@@ -39,3 +39,5 @@ select, input[type=number] { background: var(--bg); border: 1px solid var(--bord
 .seg button.on { background: var(--accent); color: var(--accent-fg); }
 .mods { display: grid; grid-template-columns: repeat(4, auto); gap: 2px 10px; font-size: .85rem; }
 .chk { display: flex; gap: 4px; align-items: center; }
+.tab-input { width: 11em; padding: 5px 10px; border-radius: 6px; border: 2px solid var(--accent); background: var(--card); }
+.tabs .rename { font-size: .85rem; padding: 4px 10px; }
