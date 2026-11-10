@@ -168,113 +168,174 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", h);
   }, [unsaved]);
 
+  const deviceName = state.phase === "ready" || state.phase === "locked" ? state.name : "";
+  const selectedLabel = selected !== null ? labels[selected] : undefined;
+
   return (
-    <div className="app">
-      <header>
-        <h1>ZMK Keymap Editor</h1>
+    <div className="shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="logo" aria-hidden>⌨</span>
+          <span>ZMK Keymap Editor</span>
+        </div>
         {dev && (
-          <div className="device">
+          <div className="device-chip" title={dev.label}>
             <span className="dot" />
-            {state.phase !== "idle" && "name" in state ? state.name : ""}
-            <small>({dev.label})</small>
-            <button onClick={disconnect}>切断</button>
+            <span className="device-name">{deviceName}</span>
+            <span className="transport">{dev.label}</span>
           </div>
         )}
+        <div className="topbar-actions">
+          {state.phase === "ready" && (
+            <>
+              <span className={`save-state${unsaved ? " dirty" : ""}`}>
+                {unsaved ? "● 未保存の変更あり" : "✓ 保存済み"}
+              </span>
+              <button className="btn ghost" disabled={!unsaved || busy} onClick={discard}>破棄</button>
+              <button className="btn primary" disabled={!unsaved || busy} onClick={save}>キーボードに保存</button>
+            </>
+          )}
+          {dev && <button className="btn ghost" onClick={disconnect}>切断</button>}
+        </div>
       </header>
 
-      {error && <div className="error" onClick={() => setError(null)}>{error}</div>}
+      {error && (
+        <div className="toast" role="alert">
+          <span>{error}</span>
+          <button className="icon-btn" onClick={() => setError(null)} aria-label="閉じる">×</button>
+        </div>
+      )}
 
       {(state.phase === "idle" || state.phase === "connecting") && (
-        <section className="connect">
-          <p>ZMK Studio 対応ファームウェアのキーボードを接続してください。</p>
-          <div className="buttons">
-            <button disabled={!isSupported("serial") || state.phase === "connecting"} onClick={() => connect("serial")}>
-              USB で接続
-            </button>
-            <button disabled={!isSupported("ble") || state.phase === "connecting"} onClick={() => connect("ble")}>
-              Bluetooth で接続
-            </button>
-            <button className="ghost" disabled={state.phase === "connecting"} onClick={() => connect("demo")}>
-              デモで試す
-            </button>
+        <div className="center-stage">
+          <div className="welcome">
+            <div className="welcome-icon" aria-hidden>⌨</div>
+            <h1>キーボードを接続</h1>
+            <p className="muted">ZMK Studio 対応ファームウェアのキーボードのキーマップを、その場で書き換えられます。</p>
+            <div className="connect-options">
+              <button className="connect-card" disabled={!isSupported("serial") || state.phase === "connecting"} onClick={() => connect("serial")}>
+                <span className="cc-icon" aria-hidden>🔌</span>
+                <span className="cc-title">USB</span>
+                <span className="cc-desc">ケーブルでつなぐ</span>
+              </button>
+              <button className="connect-card" disabled={!isSupported("ble") || state.phase === "connecting"} onClick={() => connect("ble")}>
+                <span className="cc-icon" aria-hidden>📶</span>
+                <span className="cc-title">Bluetooth</span>
+                <span className="cc-desc">ワイヤレスでつなぐ</span>
+              </button>
+              <button className="connect-card" disabled={state.phase === "connecting"} onClick={() => connect("demo")}>
+                <span className="cc-icon" aria-hidden>🧪</span>
+                <span className="cc-title">デモ</span>
+                <span className="cc-desc">キーボードなしで試す</span>
+              </button>
+            </div>
+            {state.phase === "connecting" && <p className="muted"><span className="spinner" /> 接続しています…</p>}
+            {(!isSupported("serial") || !isSupported("ble")) && (
+              <p className="muted small">USB／Bluetooth 接続は Chrome や Edge などの Chromium 系ブラウザで使えます。</p>
+            )}
           </div>
-          {(!isSupported("serial") || !isSupported("ble")) && (
-            <p className="hint">USB／Bluetooth 接続は Chrome や Edge などの Chromium 系ブラウザで使えます。</p>
-          )}
-          {state.phase === "connecting" && <p className="hint">接続しています…</p>}
-        </section>
+        </div>
       )}
 
       {state.phase === "locked" && (
-        <section className="connect">
-          <h2>🔒 キーボードがロックされています</h2>
-          <p>
-            キーマップの <code>&amp;studio_unlock</code> を割り当てたキーを押してアンロックしてください。
-            アンロックすると自動で読み込みます。
-          </p>
-        </section>
+        <div className="center-stage">
+          <div className="welcome">
+            <div className="welcome-icon" aria-hidden>🔒</div>
+            <h1>キーボードがロックされています</h1>
+            <p className="muted">
+              <code>&amp;studio_unlock</code> を割り当てたキーを押してください。アンロックすると自動で読み込みます。
+            </p>
+          </div>
+        </div>
       )}
 
       {state.phase === "ready" && keymap && physical && layer && (
-        <main>
-          <div className="toolbar">
-            <div className="tabs">
-              {keymap.layers.map((l, i) =>
-                renaming === l.id ? (
-                  <input
-                    key={l.id}
-                    className="tab-input"
-                    autoFocus
-                    value={draftName}
-                    placeholder={`Layer ${i}`}
-                    aria-label={`レイヤー ${i} の名前`}
-                    onChange={(e) => setDraftName(truncateUtf8(e.target.value, keymap.maxLayerNameLength))}
-                    onFocus={(e) => e.target.select()}
-                    onBlur={commitRename}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                      if (e.key === "Escape") {
-                        cancelRename.current = true;
-                        e.currentTarget.blur();
-                      }
-                    }}
-                  />
-                ) : (
-                  <button
-                    key={l.id}
-                    className={i === layerIdx ? "on" : ""}
-                    onClick={() => setLayerIdx(i)}
-                    onDoubleClick={() => startRename(l.id)}
-                    title="ダブルクリックで名前を変更"
-                  >
-                    {i}: {l.name || `Layer ${i}`}
-                  </button>
-                ),
-              )}
-              <button
-                className="ghost rename"
-                disabled={busy || renaming !== null}
-                onClick={() => startRename(layer.id)}
-                title="表示中のレイヤーの名前を変更"
-              >
-                ✎ 名前を変更
-              </button>
+        <div className="workspace">
+          <nav className="sidebar" aria-label="レイヤー">
+            <div className="sidebar-head">
+              <span>レイヤー</span>
+              <span className="count">{keymap.layers.length}</span>
             </div>
-            <div className="actions">
-              {unsaved && <span className="badge">未保存の変更あり</span>}
-              <button className="ghost" disabled={!unsaved || busy} onClick={discard}>破棄</button>
-              <button disabled={!unsaved || busy} onClick={save}>キーボードに保存</button>
+            <ul className="layer-list">
+              {keymap.layers.map((l, i) => (
+                <li key={l.id}>
+                  {renaming === l.id ? (
+                    <div className="layer-item editing">
+                      <span className="layer-idx">{i}</span>
+                      <input
+                        className="layer-input"
+                        autoFocus
+                        value={draftName}
+                        placeholder={`Layer ${i}`}
+                        aria-label={`レイヤー ${i} の名前`}
+                        onChange={(e) => setDraftName(truncateUtf8(e.target.value, keymap.maxLayerNameLength))}
+                        onFocus={(e) => e.target.select()}
+                        onBlur={commitRename}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") e.currentTarget.blur();
+                          if (e.key === "Escape") {
+                            cancelRename.current = true;
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className={`layer-item${i === layerIdx ? " active" : ""}`}>
+                      <button
+                        className="layer-select"
+                        onClick={() => setLayerIdx(i)}
+                        onDoubleClick={() => startRename(l.id)}
+                        aria-current={i === layerIdx}
+                      >
+                        <span className="layer-idx">{i}</span>
+                        <span className="layer-name">{l.name || `Layer ${i}`}</span>
+                      </button>
+                      <button
+                        className="icon-btn layer-edit"
+                        disabled={busy || renaming !== null}
+                        onClick={() => startRename(l.id)}
+                        title="名前を変更"
+                        aria-label={`レイヤー ${i} の名前を変更`}
+                      >
+                        ✎
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="sidebar-foot muted small">✎ かダブルクリックで名前を変更</p>
+          </nav>
+
+          <section className="canvas">
+            <div className="canvas-head">
+              <h2>{layer.name || `Layer ${layerIdx}`}</h2>
+              <span className="muted small">{physical.keys.length} キー · {physical.name}</span>
             </div>
-          </div>
+            <Keyboard layout={physical} labels={labels} selected={selected} onSelect={setSelected} />
+          </section>
 
-          <Keyboard layout={physical} labels={labels} selected={selected} onSelect={setSelected} />
-
-          <aside className="panel">
-            {selected === null ? (
-              <p className="hint">変更したいキーをクリックしてください。レイヤー名は「✎ 名前を変更」かタブのダブルクリックで変更できます（Enter で確定、Esc で取り消し）。</p>
-            ) : layer.bindings[selected] ? (
+          <aside className="inspector">
+            {selected === null || !layer.bindings[selected] ? (
+              <div className="empty">
+                <div className="empty-key" aria-hidden />
+                <p>キーを選択してください</p>
+                <p className="muted small">キーボード上のキーをクリックすると、ここで割り当てを変更できます。</p>
+              </div>
+            ) : (
               <>
-                <h3>キー {selected} <small>({layer.name || `Layer ${layerIdx}`})</small></h3>
+                <div className="inspector-head">
+                  <div className="preview-key">
+                    {selectedLabel?.sub && <span className="sub">{selectedLabel.sub}</span>}
+                    <span className="main">{selectedLabel?.main || "—"}</span>
+                  </div>
+                  <div>
+                    <div className="inspector-title">キー {selected}</div>
+                    <div className="muted small">{layer.name || `Layer ${layerIdx}`}</div>
+                  </div>
+                  <button className="icon-btn" onClick={() => setSelected(null)} aria-label="選択を解除">×</button>
+                </div>
                 <BindingEditor
                   binding={layer.bindings[selected]}
                   behaviors={behaviors}
@@ -282,9 +343,9 @@ export default function App() {
                   onChange={updateBinding}
                 />
               </>
-            ) : null}
+            )}
           </aside>
-        </main>
+        </div>
       )}
     </div>
   );
