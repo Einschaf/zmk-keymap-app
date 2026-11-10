@@ -137,7 +137,7 @@ export default function App() {
       setRenaming(null);
       if (cancelRename.current) return;
       if (!dev || !keymap || layerId === null) return;
-      const name = draftName.trim().slice(0, keymap.maxLayerNameLength);
+      const name = truncateUtf8(draftName.trim(), keymap.maxLayerNameLength);
       const current = keymap.layers.find((l) => l.id === layerId);
       if (!current || name === current.name) return;
       if (!(await dev.setLayerName(layerId, name))) throw new Error("レイヤー名を変更できませんでした");
@@ -226,10 +226,9 @@ export default function App() {
                     className="tab-input"
                     autoFocus
                     value={draftName}
-                    maxLength={keymap.maxLayerNameLength}
                     placeholder={`Layer ${i}`}
                     aria-label={`レイヤー ${i} の名前`}
-                    onChange={(e) => setDraftName(e.target.value)}
+                    onChange={(e) => setDraftName(truncateUtf8(e.target.value, keymap.maxLayerNameLength))}
                     onFocus={(e) => e.target.select()}
                     onBlur={commitRename}
                     onKeyDown={(e) => {
@@ -289,4 +288,15 @@ export default function App() {
       )}
     </div>
   );
+}
+
+/** The firmware limits layer names in bytes (UTF-8), so a Japanese character counts as 3. */
+function truncateUtf8(s: string, maxBytes: number): string {
+  const enc = new TextEncoder();
+  let out = "";
+  for (const ch of s) {
+    if (enc.encode(out + ch).length > maxBytes) break;
+    out += ch;
+  }
+  return out;
 }
